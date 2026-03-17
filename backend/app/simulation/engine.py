@@ -178,7 +178,7 @@ class SimulationEngine:
     # User-triggered actions (called from API routes)
     # ------------------------------------------------------------------
 
-    def handle_action(self, action_type: str, x: int, y: int) -> dict[str, Any]:
+    def handle_action(self, action_type: str, x: int, y: int, triggered_by: str | None = None) -> dict[str, Any]:
         w = self.world
         if not w.in_bounds(x, y):
             return {"ok": False, "error": "Out of bounds"}
@@ -192,7 +192,8 @@ class SimulationEngine:
             w.resources.wood -= 5
             tile.type = TileType.TREE
             tile.durability = 100.0
-            w.add_event("build", f"Tree planted at ({x}, {y})")
+            who = f" by {triggered_by}" if triggered_by else ""
+            w.add_event("build", f"Tree planted at ({x}, {y}){who}", triggered_by=triggered_by)
             return {"ok": True}
 
         if action_type == "build_house":
@@ -204,19 +205,20 @@ class SimulationEngine:
             w.resources.wood -= 15
             tile.type = TileType.HOUSE
             tile.durability = 100.0
-            w.add_event("build", f"House built at ({x}, {y})")
+            who = f" by {triggered_by}" if triggered_by else ""
+            w.add_event("build", f"House built at ({x}, {y}){who}", triggered_by=triggered_by)
             return {"ok": True}
 
         if action_type == "trigger_fire":
             from app.simulation.events import trigger_fire_at
 
-            ok = trigger_fire_at(w, x, y)
+            ok = trigger_fire_at(w, x, y, triggered_by=triggered_by)
             return {"ok": ok, "error": None if ok else "Cannot ignite this tile"}
 
         if action_type == "trigger_rain":
             from app.simulation.events import apply_rain
 
-            apply_rain(w, x, y)
+            apply_rain(w, x, y, triggered_by=triggered_by)
             return {"ok": True}
 
         return {"ok": False, "error": f"Unknown action: {action_type}"}

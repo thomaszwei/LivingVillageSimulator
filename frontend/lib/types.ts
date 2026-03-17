@@ -14,6 +14,7 @@ export interface GameEventData {
   type: string;
   message: string;
   tick: number;
+  triggeredBy: string | null;
 }
 
 export interface WorldStateData {
@@ -40,3 +41,25 @@ export interface ActionPayload {
   x: number;
   y: number;
 }
+
+export interface UserData {
+  id: number;
+  username: string;
+  credits: number;
+  actions_taken: number;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  username: string;
+  credits: number;
+  actions_taken: number;
+}
+
+// Credit cost per action — mirrors backend ACTION_COSTS
+export const ACTION_COSTS: Record<ActionType, number> = {
+  spawn_tree:   5,
+  build_house:  15,
+  trigger_fire: 10,
+  trigger_rain: 20,
+};

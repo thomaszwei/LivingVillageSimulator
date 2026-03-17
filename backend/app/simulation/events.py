@@ -110,7 +110,7 @@ def _random_rain(world: WorldState) -> None:
     apply_rain(world, cx, cy)
 
 
-def apply_rain(world: WorldState, cx: int, cy: int, radius: int = 5) -> None:
+def apply_rain(world: WorldState, cx: int, cy: int, radius: int = 5, triggered_by: str | None = None) -> None:
     """Raise world rain level and immediately extinguish fires in the area."""
     world.rain_level = min(1.0, world.rain_level + 0.7)
     extinguished = 0
@@ -120,10 +120,11 @@ def apply_rain(world: WorldState, cx: int, cy: int, radius: int = 5) -> None:
             if world.in_bounds(nx, ny) and world.grid[ny][nx].on_fire:
                 world.grid[ny][nx].on_fire = False
                 extinguished += 1
+    who = f" by {triggered_by}" if triggered_by else ""
     if extinguished:
-        world.add_event("rain", f"Rain at ({cx}, {cy}) extinguished {extinguished} fire{'' if extinguished == 1 else 's'}")
+        world.add_event("rain", f"Rain at ({cx}, {cy}){who} extinguished {extinguished} fire{'' if extinguished == 1 else 's'}", triggered_by=triggered_by)
     else:
-        world.add_event("rain", f"Rain fell near ({cx}, {cy})")
+        world.add_event("rain", f"Rain fell near ({cx}, {cy}){who}", triggered_by=triggered_by)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -144,12 +145,13 @@ def _disease_outbreak(world: WorldState) -> None:
 # User-triggered
 # ─────────────────────────────────────────────────────────────────────────────
 
-def trigger_fire_at(world: WorldState, x: int, y: int) -> bool:
+def trigger_fire_at(world: WorldState, x: int, y: int, triggered_by: str | None = None) -> bool:
     if not world.in_bounds(x, y):
         return False
     tile = world.grid[y][x]
     if tile.type == TileType.WATER or tile.on_fire:
         return False
     tile.on_fire = True
-    world.add_event("fire", f"Fire started at ({x}, {y}) by player")
+    who = f" by {triggered_by}" if triggered_by else " by player"
+    world.add_event("fire", f"Fire started at ({x}, {y}){who}", triggered_by=triggered_by)
     return True

@@ -85,6 +85,7 @@ class GameEvent:
     type: str
     message: str
     tick: int
+    triggered_by: str | None = None
 
 
 @dataclass
@@ -183,8 +184,8 @@ class WorldState:
     def living_villagers(self) -> list[Villager]:
         return [v for v in self.villagers if v.is_alive()]
 
-    def add_event(self, etype: str, message: str) -> None:
-        self.events.append(GameEvent(type=etype, message=message, tick=self.tick))
+    def add_event(self, etype: str, message: str, triggered_by: str | None = None) -> None:
+        self.events.append(GameEvent(type=etype, message=message, tick=self.tick, triggered_by=triggered_by))
         if len(self.events) > 200:
             self.events = self.events[-100:]
 
@@ -222,7 +223,7 @@ class WorldState:
             },
             "population": len(self.living_villagers()),
             "events": [
-                {"type": e.type, "message": e.message, "tick": e.tick}
+                {"type": e.type, "message": e.message, "tick": e.tick, "triggeredBy": e.triggered_by}
                 for e in self.events[-30:]
             ],
         }

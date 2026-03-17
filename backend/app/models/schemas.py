@@ -23,4 +23,15 @@ class EventLog(Base):
     event_type = Column(Text, nullable=False)
     data = Column(Text, nullable=False)
     tick = Column(Integer, nullable=False)
+    triggered_by = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(Text, nullable=False, unique=True)
+    credits = Column(Integer, nullable=False, default=100)
+    actions_taken = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

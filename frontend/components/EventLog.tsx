@@ -27,13 +27,16 @@ export default function EventLog({ events }: Props) {
           <p className="text-gray-500 italic">No events yet...</p>
         )}
         {reversed.map((ev, i) => (
-          <div key={`${ev.tick}-${i}`} className="flex gap-2">
+          <div key={`${ev.tick}-${i}`} className="flex gap-2 items-start">
             <span className="text-gray-500 w-12 shrink-0 text-right">
               #{ev.tick}
             </span>
-            <span className={EVENT_COLORS[ev.type] ?? "text-gray-300"}>
+            <span className={`flex-1 ${EVENT_COLORS[ev.type] ?? "text-gray-300"}`}>
               {ev.message}
             </span>
+            {ev.triggeredBy && (
+              <span className="text-indigo-400/70 shrink-0">{ev.triggeredBy}</span>
+            )}
           </div>
         ))}
       </div>

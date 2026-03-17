@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { WorldStateData } from "./types";
+import type { LeaderboardEntry, UserData, WorldStateData } from "./types";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000/ws";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -51,12 +51,12 @@ export function useSimulation() {
   }, [connect]);
 
   const sendAction = useCallback(
-    async (type: string, x: number, y: number) => {
+    async (type: string, x: number, y: number, username?: string) => {
       try {
         const res = await fetch(`${API_URL}/action`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type, x, y }),
+          body: JSON.stringify({ type, x, y, username: username ?? null }),
         });
         return await res.json();
       } catch (err) {
@@ -68,4 +68,25 @@ export function useSimulation() {
   );
 
   return { state, connected, sendAction };
+}
+
+// ── User API ──────────────────────────────────────────────────────────────────
+
+export async function createOrGetUser(username: string): Promise<UserData> {
+  const res = await fetch(`${API_URL}/users`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? "Failed to create user");
+  }
+  return res.json();
+}
+
+export async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
+  const res = await fetch(`${API_URL}/leaderboard`);
+  if (!res.ok) throw new Error("Failed to fetch leaderboard");
+  return res.json();
 }
