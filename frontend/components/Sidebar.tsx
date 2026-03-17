@@ -14,8 +14,17 @@ function getDayPhase(t: number): string {
   return "Night";
 }
 
+function getWeather(rain: number): { label: string; color: string } {
+  if (rain <= 0.02) return { label: "Clear",    color: "#fbbf24" };
+  if (rain < 0.25)  return { label: "Drizzle",  color: "#93c5fd" };
+  if (rain < 0.55)  return { label: "Rain",     color: "#60a5fa" };
+  return              { label: "Downpour", color: "#818cf8" };
+}
+
 export default function Sidebar({ state }: Props) {
-  const phase = getDayPhase(state.timeOfDay);
+  const phase   = getDayPhase(state.timeOfDay);
+  const rain    = state.rainLevel ?? 0;
+  const weather = getWeather(rain);
 
   return (
     <div className="space-y-4">
@@ -41,6 +50,35 @@ export default function Sidebar({ state }: Props) {
             }}
           />
         </div>
+      </div>
+
+      {/* Weather */}
+      <div className="bg-gray-800 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">
+          Weather
+        </h3>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-base font-bold" style={{ color: weather.color }}>
+            {rain <= 0.02 ? "☀" : rain < 0.25 ? "🌦" : rain < 0.55 ? "🌧" : "⛈"}&nbsp;
+            {weather.label}
+          </span>
+          <span className="text-xs text-gray-400">{Math.round(rain * 100)}%</span>
+        </div>
+        {/* Rain intensity bar */}
+        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{
+              width: `${rain * 100}%`,
+              background: "linear-gradient(to right, #93c5fd, #818cf8)",
+            }}
+          />
+        </div>
+        {rain > 0.02 && (
+          <p className="mt-1 text-xs text-blue-400">
+            Fire spread reduced by {Math.round(rain * 85)}%
+          </p>
+        )}
       </div>
 
       {/* Population */}

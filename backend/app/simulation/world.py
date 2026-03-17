@@ -98,6 +98,7 @@ class WorldState:
     villagers: list[Villager] = field(default_factory=list)
     resources: Resources = field(default_factory=Resources)
     events: list[GameEvent] = field(default_factory=list)
+    rain_level: float = 0.0   # 0.0 = dry, 1.0 = heavy rain; decays each tick
     _next_villager_id: int = 1
 
     # ------------------------------------------------------------------
@@ -196,6 +197,7 @@ class WorldState:
             "tick": self.tick,
             "timeOfDay": round(self.time_of_day, 3),
             "dayCount": self.day_count,
+            "rainLevel": round(self.rain_level, 3),
             "grid": [[tile.type.value for tile in row] for row in self.grid],
             "fires": [[tile.on_fire for tile in row] for row in self.grid],
             "villagers": [

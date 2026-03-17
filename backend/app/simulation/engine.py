@@ -102,6 +102,10 @@ class SimulationEngine:
         spread_fire(self.world)
         maybe_trigger_random_events(self.world)
 
+        # Rain level decays over time (~100 s at default tick rate)
+        if self.world.rain_level > 0.0:
+            self.world.rain_level = max(0.0, self.world.rain_level - 0.003)
+
     # ------------------------------------------------------------------
     # Resource production (passive, tile-based)
     # ------------------------------------------------------------------

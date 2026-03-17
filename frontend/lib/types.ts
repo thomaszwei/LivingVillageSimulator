@@ -20,6 +20,7 @@ export interface WorldStateData {
   tick: number;
   timeOfDay: number;
   dayCount: number;
+  rainLevel: number;
   grid: string[][];
   fires: boolean[][];
   villagers: VillagerData[];
