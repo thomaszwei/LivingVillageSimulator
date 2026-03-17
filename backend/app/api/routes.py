@@ -48,6 +48,22 @@ class VoteRequest(BaseModel):
     username: str | None = None
 
 
+# ── Root / health ─────────────────────────────────────────────────────────────
+
+@router.get("/")
+async def root() -> dict[str, str]:
+    return {
+        "app": "Living Village Simulator",
+        "docs": "/docs",
+        "frontend": "http://localhost:3000",
+    }
+
+
+@router.get("/health")
+async def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
 # ── World state ───────────────────────────────────────────────────────────────
 
 @router.get("/state")
