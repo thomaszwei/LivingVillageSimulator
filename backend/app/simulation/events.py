@@ -155,3 +155,66 @@ def trigger_fire_at(world: WorldState, x: int, y: int, triggered_by: str | None 
     who = f" by {triggered_by}" if triggered_by else " by player"
     world.add_event("fire", f"Fire started at ({x}, {y}){who}", triggered_by=triggered_by)
     return True
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Vote-triggered disasters
+# ─────────────────────────────────────────────────────────────────────────────
+
+def trigger_meteor(world: WorldState) -> None:
+    """Meteor impact: destroys tiles in a small radius, ignites surroundings,
+    and damages nearby villagers."""
+    cx = random.randint(3, world.width - 4)
+    cy = random.randint(3, world.height - 4)
+    # Destroy centre tiles (radius 1)
+    for dy in range(-1, 2):
+        for dx in range(-1, 2):
+            nx, ny = cx + dx, cy + dy
+            if world.in_bounds(nx, ny):
+                tile = world.grid[ny][nx]
+                tile.type = TileType.GRASS
+                tile.on_fire = False
+                tile.durability = 100.0
+    # Ignite ring (radius 2)
+    for dy in range(-2, 3):
+        for dx in range(-2, 3):
+            if abs(dx) <= 1 and abs(dy) <= 1:
+                continue  # skip already-destroyed centre
+            nx, ny = cx + dx, cy + dy
+            if world.in_bounds(nx, ny):
+                tile = world.grid[ny][nx]
+                if tile.type != TileType.WATER and random.random() < 0.65:
+                    tile.on_fire = True
+    # Damage villagers (radius 3)
+    for v in world.living_villagers():
+        dist = abs(v.x - cx) + abs(v.y - cy)
+        if dist <= 3:
+            dmg = random.uniform(25.0, 45.0)
+            v.health = max(0.0, v.health - dmg)
+    world.add_event("meteor", f"Meteor struck at ({cx}, {cy})!")
+
+
+def trigger_plague(world: WorldState) -> None:
+    """Severe plague: every living villager takes heavy damage and gains hunger."""
+    living = world.living_villagers()
+    if not living:
+        return
+    for v in living:
+        v.health = max(0.0, v.health - random.uniform(20.0, 40.0))
+        v.hunger = min(100.0, v.hunger + random.uniform(15.0, 30.0))
+    world.add_event("disease", f"A devastating plague swept through the village! ({len(living)} affected)")
+
+
+def trigger_storm(world: WorldState) -> None:
+    """Violent storm: heavy rain + lightning strikes that ignite random tiles."""
+    world.rain_level = min(1.0, world.rain_level + 0.9)
+    strikes = random.randint(4, 8)
+    hit = 0
+    for _ in range(strikes):
+        sx = random.randint(0, world.width - 1)
+        sy = random.randint(0, world.height - 1)
+        tile = world.grid[sy][sx]
+        if tile.type != TileType.WATER and not tile.on_fire:
+            tile.on_fire = True
+            hit += 1
+    world.add_event("storm", f"Violent storm! {hit} lightning strike{'s' if hit != 1 else ''} hit the village")

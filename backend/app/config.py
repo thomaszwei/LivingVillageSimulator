@@ -15,6 +15,7 @@ TICK_INTERVAL: float = float(os.getenv("TICK_INTERVAL", "0.3"))
 WS_BROADCAST_EVERY: int = int(os.getenv("WS_BROADCAST_EVERY", "3"))
 DAY_LENGTH_TICKS: int = int(os.getenv("DAY_LENGTH_TICKS", "200"))
 PERSIST_EVERY: int = int(os.getenv("PERSIST_EVERY", "50"))
+VOTE_CYCLE_TICKS: int = int(os.getenv("VOTE_CYCLE_TICKS", "200"))  # ~60 s at default tick rate
 
 INITIAL_VILLAGERS: int = 5
 INITIAL_TREES: int = 18

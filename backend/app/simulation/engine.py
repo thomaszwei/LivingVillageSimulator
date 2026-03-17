@@ -6,9 +6,15 @@ import asyncio
 import logging
 from typing import Any, Callable, Coroutine
 
-from app.config import DAY_LENGTH_TICKS, PERSIST_EVERY, TICK_INTERVAL, WS_BROADCAST_EVERY
+from app.config import DAY_LENGTH_TICKS, PERSIST_EVERY, TICK_INTERVAL, VOTE_CYCLE_TICKS, WS_BROADCAST_EVERY
 from app.simulation.ai import VILLAGER_BT
-from app.simulation.events import maybe_trigger_random_events, spread_fire
+from app.simulation.events import (
+    maybe_trigger_random_events,
+    spread_fire,
+    trigger_meteor,
+    trigger_plague,
+    trigger_storm,
+)
 from app.simulation.world import TileType, Villager, VillagerState, WorldState
 
 logger = logging.getLogger("simulation")
@@ -106,6 +112,15 @@ class SimulationEngine:
         if self.world.rain_level > 0.0:
             self.world.rain_level = max(0.0, self.world.rain_level - 0.003)
 
+        # Vote countdown
+        self.world.vote_ticks_remaining -= 1
+        if self.world.vote_ticks_remaining <= 0:
+            self._resolve_vote()
+            self.world.vote_round += 1
+            self.world.vote_ticks_remaining = VOTE_CYCLE_TICKS
+            self.world.votes = {"meteor": 0, "plague": 0, "storm": 0}
+            self.world.voted_users = set()
+
     # ------------------------------------------------------------------
     # Resource production (passive, tile-based)
     # ------------------------------------------------------------------
@@ -173,6 +188,52 @@ class SimulationEngine:
 
         # ── Behavior tree decides what to do ──────────────────────────
         VILLAGER_BT.tick(v, w)
+
+    # ------------------------------------------------------------------
+    # Vote resolution
+    # ------------------------------------------------------------------
+
+    _DISASTER_FNS: dict[str, Any] = {
+        "meteor": trigger_meteor,
+        "plague": trigger_plague,
+        "storm":  trigger_storm,
+    }
+
+    def _resolve_vote(self) -> None:
+        """Tally votes, trigger the winning disaster, record result."""
+        import random as _rng
+
+        w = self.world
+        total = sum(w.votes.values())
+        if total == 0:
+            # No votes — pick one at random
+            winner = _rng.choice(list(w.votes.keys()))
+        else:
+            max_count = max(w.votes.values())
+            leaders = [d for d, c in w.votes.items() if c == max_count]
+            winner = _rng.choice(leaders) if len(leaders) > 1 else leaders[0]
+
+        fn = self._DISASTER_FNS.get(winner)
+        if fn:
+            fn(w)
+
+        w.last_disaster_result = {
+            "disaster": winner,
+            "votes": w.votes.get(winner, 0),
+            "totalVotes": total,
+        }
+
+    def cast_vote(self, username: str | None, disaster_type: str) -> dict[str, Any]:
+        """Register a user's vote for the current round."""
+        w = self.world
+        if disaster_type not in w.votes:
+            return {"ok": False, "error": f"Invalid disaster type: {disaster_type}"}
+        if username and username in w.voted_users:
+            return {"ok": False, "error": "Already voted this round"}
+        w.votes[disaster_type] = w.votes.get(disaster_type, 0) + 1
+        if username:
+            w.voted_users.add(username)
+        return {"ok": True, "round": w.vote_round, "votes": dict(w.votes)}
 
     # ------------------------------------------------------------------
     # User-triggered actions (called from API routes)

@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
-from app.models.schemas import User
+from app.models.schemas import User, VoteLog
 
 router = APIRouter()
 
@@ -41,6 +41,11 @@ class ActionRequest(BaseModel):
 
 class UserRequest(BaseModel):
     username: str
+
+
+class VoteRequest(BaseModel):
+    disaster: str
+    username: str | None = None
 
 
 # ── World state ───────────────────────────────────────────────────────────────
@@ -133,3 +138,28 @@ async def post_action(
         return {**action_result, "credits": user.credits, "actions_taken": user.actions_taken}
 
     return action_result
+
+
+# ── Voting ────────────────────────────────────────────────────────────────────
+
+@router.post("/vote")
+async def cast_vote(
+    req: VoteRequest,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    if _engine is None:
+        raise HTTPException(status_code=503, detail="Simulation not running")
+
+    result = _engine.cast_vote(req.username, req.disaster)
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Vote failed"))
+
+    # Persist to vote_log
+    session.add(VoteLog(
+        round_id=result["round"],
+        username=req.username,
+        disaster_type=req.disaster,
+    ))
+    await session.commit()
+
+    return result

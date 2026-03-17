@@ -6,6 +6,7 @@ import EventLog from "@/components/EventLog";
 import Leaderboard from "@/components/Leaderboard";
 import Sidebar from "@/components/Sidebar";
 import UserLogin from "@/components/UserLogin";
+import VotePanel from "@/components/VotePanel";
 import WorldCanvas from "@/components/WorldCanvas";
 import type { ActionType, UserData } from "@/lib/types";
 import { createOrGetUser, useSimulation } from "@/lib/websocket";
@@ -152,9 +153,10 @@ export default function Home() {
             />
           </div>
 
-          {/* Right: Sidebar + Leaderboard + EventLog */}
+          {/* Right: Sidebar + VotePanel + Leaderboard + EventLog */}
           <div className="space-y-4">
             <Sidebar state={state} />
+            <VotePanel vote={state.vote} username={user?.username ?? null} />
             <Leaderboard currentUsername={user?.username ?? null} />
             <EventLog events={state.events} />
           </div>

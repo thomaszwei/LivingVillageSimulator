@@ -13,6 +13,8 @@ const EVENT_COLORS: Record<string, string> = {
   death: "text-gray-400",
   day: "text-yellow-300",
   build: "text-green-400",
+  meteor: "text-orange-400",
+  storm: "text-sky-400",
 };
 
 export default function EventLog({ events }: Props) {

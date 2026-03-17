@@ -17,6 +17,18 @@ export interface GameEventData {
   triggeredBy: string | null;
 }
 
+export interface VoteState {
+  round: number;
+  secondsRemaining: number;
+  votes: Record<string, number>;
+  totalVotes: number;
+  lastResult: {
+    disaster: string;
+    votes: number;
+    totalVotes: number;
+  } | null;
+}
+
 export interface WorldStateData {
   tick: number;
   timeOfDay: number;
@@ -32,7 +44,10 @@ export interface WorldStateData {
   };
   population: number;
   events: GameEventData[];
+  vote: VoteState;
 }
+
+export type DisasterType = "meteor" | "plague" | "storm";
 
 export type ActionType = "spawn_tree" | "build_house" | "trigger_fire" | "trigger_rain";
 

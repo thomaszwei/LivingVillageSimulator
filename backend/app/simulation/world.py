@@ -15,6 +15,8 @@ from app.config import (
     INITIAL_VILLAGERS,
     INITIAL_WATER,
     INITIAL_WOOD,
+    TICK_INTERVAL,
+    VOTE_CYCLE_TICKS,
 )
 
 VILLAGER_NAMES: list[str] = [
@@ -101,6 +103,13 @@ class WorldState:
     events: list[GameEvent] = field(default_factory=list)
     rain_level: float = 0.0   # 0.0 = dry, 1.0 = heavy rain; decays each tick
     _next_villager_id: int = 1
+
+    # Vote state (reset each round)
+    vote_round: int = 0
+    vote_ticks_remaining: int = VOTE_CYCLE_TICKS
+    votes: dict[str, int] = field(default_factory=lambda: {"meteor": 0, "plague": 0, "storm": 0})
+    voted_users: set[str] = field(default_factory=set)
+    last_disaster_result: dict[str, Any] | None = None
 
     # ------------------------------------------------------------------
     # Initialization
@@ -226,4 +235,11 @@ class WorldState:
                 {"type": e.type, "message": e.message, "tick": e.tick, "triggeredBy": e.triggered_by}
                 for e in self.events[-30:]
             ],
+            "vote": {
+                "round": self.vote_round,
+                "secondsRemaining": round(self.vote_ticks_remaining * TICK_INTERVAL),
+                "votes": dict(self.votes),
+                "totalVotes": len(self.voted_users),
+                "lastResult": self.last_disaster_result,
+            },
         }

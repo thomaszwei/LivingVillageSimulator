@@ -90,3 +90,19 @@ export async function fetchLeaderboard(): Promise<LeaderboardEntry[]> {
   if (!res.ok) throw new Error("Failed to fetch leaderboard");
   return res.json();
 }
+
+export async function castVote(
+  disaster: string,
+  username?: string,
+): Promise<{ ok: boolean; votes?: Record<string, number>; error?: string }> {
+  const res = await fetch(`${API_URL}/vote`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ disaster, username: username ?? null }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    return { ok: false, error: err.detail ?? "Vote failed" };
+  }
+  return res.json();
+}
