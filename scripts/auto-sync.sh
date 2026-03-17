@@ -69,3 +69,4 @@ while true; do
   git -C "$REPO_DIR" push origin "$BRANCH"
   echo "[auto-sync] ✓ Pushed at $ts"
 done
+# auto-sync workflow
