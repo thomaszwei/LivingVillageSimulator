@@ -15,12 +15,19 @@ export default function Home() {
   const [selectedAction, setSelectedAction] = useState<ActionType | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
 
+  // ── Display mode — read synchronously from inline script injected by layout.tsx
+  const [displayMode] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return !!(window as unknown as { __DISPLAY_MODE__?: boolean }).__DISPLAY_MODE__;
+  });
+
   // ── User state ──────────────────────────────────────────────────────────────
   const [user, setUser] = useState<UserData | null>(null);
   const [userLoading, setUserLoading] = useState(true);
 
-  // Auto-login from localStorage on mount
+  // Auto-login from localStorage on mount (skipped in display mode)
   useEffect(() => {
+    if (displayMode) { setUserLoading(false); return; }
     const stored = localStorage.getItem("village_username");
     if (stored) {
       createOrGetUser(stored)
@@ -30,11 +37,9 @@ export default function Home() {
     } else {
       setUserLoading(false);
     }
-  }, []);
+  }, [displayMode]);
 
-  const handleLogin = (u: UserData) => {
-    setUser(u);
-  };
+  const handleLogin = (u: UserData) => setUser(u);
 
   // ── Tile interaction ─────────────────────────────────────────────────────────
   const handleTileClick = async (x: number, y: number) => {
@@ -42,7 +47,6 @@ export default function Home() {
     const result = await sendAction(selectedAction, x, y, user?.username);
     if (result.ok) {
       setFeedback(`${selectedAction} at (${x}, ${y})`);
-      // Update local credit balance from response
       if (user && typeof result.credits === "number") {
         setUser({ ...user, credits: result.credits, actions_taken: result.actions_taken });
       }
@@ -51,6 +55,26 @@ export default function Home() {
     }
     setTimeout(() => setFeedback(null), 2500);
   };
+
+  // ── Display mode layout ──────────────────────────────────────────────────────
+  if (displayMode) {
+    return (
+      <div className="fixed inset-0 bg-black flex items-center justify-center overflow-hidden">
+        {state ? (
+          <WorldCanvas
+            state={state}
+            selectedAction={null}
+            onTileClick={() => {}}
+            displayMode={true}
+          />
+        ) : (
+          <div className="text-gray-700 text-sm">
+            {connected ? "Loading..." : "Connecting..."}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // ── Loading splash ───────────────────────────────────────────────────────────
   if (!state) {

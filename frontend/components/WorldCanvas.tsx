@@ -59,9 +59,10 @@ interface Props {
   state: WorldStateData;
   selectedAction: string | null;
   onTileClick: (x: number, y: number) => void;
+  displayMode?: boolean;
 }
 
-export default function WorldCanvas({ state, selectedAction, onTileClick }: Props) {
+export default function WorldCanvas({ state, selectedAction, onTileClick, displayMode = false }: Props) {
   const canvasRef       = useRef<HTMLCanvasElement>(null);
   // Refs mirror latest prop/state values so the RAF loop never needs a restart
   const stateRef        = useRef(state);
@@ -70,6 +71,7 @@ export default function WorldCanvas({ state, selectedAction, onTileClick }: Prop
   const particlesRef    = useRef<Particle[]>([]);
   const rainDropsRef    = useRef<RainDrop[]>([]);
   const lastSpawnRef    = useRef(0);
+  const lastFrameRef    = useRef(0); // for display mode FPS cap
 
   const [hoverTile, setHoverTile] = useState<{ x: number; y: number } | null>(null);
 
@@ -87,6 +89,13 @@ export default function WorldCanvas({ state, selectedAction, onTileClick }: Prop
     let animId: number;
 
     function animate(ts: number) {
+      // Display mode: cap to ~30 fps to reduce CPU/GPU load
+      if (displayMode && ts - lastFrameRef.current < 33) {
+        animId = requestAnimationFrame(animate);
+        return;
+      }
+      lastFrameRef.current = ts;
+
       const s   = stateRef.current;
       const pts = particlesRef.current;
       const rds = rainDropsRef.current;
@@ -95,10 +104,12 @@ export default function WorldCanvas({ state, selectedAction, onTileClick }: Prop
       if (ts - lastSpawnRef.current > 55) {
         lastSpawnRef.current = ts;
 
+        const spawnChance = displayMode ? 0.12 : 0.28;
+
         for (let ry = 0; ry < GRID; ry++) {
           for (let rx = 0; rx < GRID; rx++) {
             if (!s.fires[ry]?.[rx]) continue;
-            if (Math.random() > 0.28) continue;
+            if (Math.random() > spawnChance) continue;
 
             const tileType = s.grid[ry]?.[rx] ?? "grass";
             const cx = rx * CELL + CELL / 2 + (Math.random() - 0.5) * CELL * 0.7;
@@ -116,8 +127,8 @@ export default function WorldCanvas({ state, selectedAction, onTileClick }: Prop
               isEmber: false,
             });
 
-            // Embers — only from trees, occur less often
-            if (tileType === "tree" && Math.random() < 0.28) {
+            // Embers — only from trees, skipped in display mode
+            if (!displayMode && tileType === "tree" && Math.random() < 0.28) {
               pts.push({
                 x: cx, y: cy - 1,
                 vx: (Math.random() - 0.5) * 2.2,
@@ -135,7 +146,7 @@ export default function WorldCanvas({ state, selectedAction, onTileClick }: Prop
         // Rain drops enter from the top
         const rainLevel = s.rainLevel ?? 0;
         if (rainLevel > 0) {
-          const n = Math.ceil(rainLevel * 12);
+          const n = Math.ceil(rainLevel * (displayMode ? 6 : 12));
           for (let i = 0; i < n; i++) {
             rds.push({
               x: Math.random() * (SIZE + 50) - 20,
@@ -148,6 +159,11 @@ export default function WorldCanvas({ state, selectedAction, onTileClick }: Prop
       }
 
       // ── Update ────────────────────────────────────────────────────────────
+      const maxParticles = displayMode ? 80  : 380;
+      const trimParticles = displayMode ? 60  : 320;
+      const maxRain      = displayMode ? 120 : 520;
+      const trimRain     = displayMode ? 80  : 440;
+
       particlesRef.current = pts
         .map((p) => {
           p.x += p.vx;
@@ -158,12 +174,12 @@ export default function WorldCanvas({ state, selectedAction, onTileClick }: Prop
           return p;
         })
         .filter((p) => p.opacity > 0.01);
-      if (particlesRef.current.length > 380) particlesRef.current = particlesRef.current.slice(-320);
+      if (particlesRef.current.length > maxParticles) particlesRef.current = particlesRef.current.slice(-trimParticles);
 
       rainDropsRef.current = rds
         .map((d) => { d.x -= 1.8; d.y += d.speed; return d; })
         .filter((d) => d.y < SIZE + 20);
-      if (rainDropsRef.current.length > 520) rainDropsRef.current = rainDropsRef.current.slice(-440);
+      if (rainDropsRef.current.length > maxRain) rainDropsRef.current = rainDropsRef.current.slice(-trimRain);
 
       // ── Draw ──────────────────────────────────────────────────────────────
       ctx.clearRect(0, 0, SIZE, SIZE);
@@ -186,49 +202,58 @@ export default function WorldCanvas({ state, selectedAction, onTileClick }: Prop
           const phase = x * 1.31 + y * 0.87;
           const t     = 0.5 + 0.5 * Math.sin(ts * spd + phase);       // 0–1
 
-          // Char/ash base — darkens the tile beneath
-          ctx.fillStyle = "rgba(20, 8, 0, 0.40)";
-          ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
-
-          // Fire body — orange-red, flickers in intensity
-          const fireAlpha = 0.52 + t * 0.28;
-          const rr = 215 + Math.round(t * 40);
-          const gg = Math.round(t * (tileType === "tree" ? 80 : 55));
-          ctx.fillStyle = `rgba(${rr}, ${gg}, 15, ${fireAlpha})`;
-          ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
-
-          // Hot core — trees burn white-yellow, others are dimmer orange
-          if (tileType === "tree") {
-            // Bright white-yellow core (very hot)
-            ctx.fillStyle = `rgba(255, 240, 80, ${0.45 + t * 0.35})`;
-            ctx.fillRect(x * CELL + 2, y * CELL + 2, CELL - 4, CELL - 4);
-            ctx.fillStyle = `rgba(255, 255, 200, ${0.20 + t * 0.25})`;
-            ctx.fillRect(x * CELL + 4, y * CELL + 4, CELL - 8, CELL - 8);
+          if (displayMode) {
+            // Simplified: single orange-red pass — much cheaper
+            const fireAlpha = 0.55 + t * 0.25;
+            const rr = 215 + Math.round(t * 40);
+            const gg = Math.round(t * 50);
+            ctx.fillStyle = `rgba(${rr}, ${gg}, 15, ${fireAlpha})`;
+            ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
           } else {
-            // Warm orange core (lower temp)
-            ctx.fillStyle = `rgba(255, 150, 30, ${0.28 + t * 0.22})`;
-            ctx.fillRect(x * CELL + 3, y * CELL + 3, CELL - 6, CELL - 6);
+            // Full quality: char base + fire body + hot core
+            ctx.fillStyle = "rgba(20, 8, 0, 0.40)";
+            ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+
+            const fireAlpha = 0.52 + t * 0.28;
+            const rr = 215 + Math.round(t * 40);
+            const gg = Math.round(t * (tileType === "tree" ? 80 : 55));
+            ctx.fillStyle = `rgba(${rr}, ${gg}, 15, ${fireAlpha})`;
+            ctx.fillRect(x * CELL, y * CELL, CELL, CELL);
+
+            if (tileType === "tree") {
+              ctx.fillStyle = `rgba(255, 240, 80, ${0.45 + t * 0.35})`;
+              ctx.fillRect(x * CELL + 2, y * CELL + 2, CELL - 4, CELL - 4);
+              ctx.fillStyle = `rgba(255, 255, 200, ${0.20 + t * 0.25})`;
+              ctx.fillRect(x * CELL + 4, y * CELL + 4, CELL - 8, CELL - 8);
+            } else {
+              ctx.fillStyle = `rgba(255, 150, 30, ${0.28 + t * 0.22})`;
+              ctx.fillRect(x * CELL + 3, y * CELL + 3, CELL - 6, CELL - 6);
+            }
           }
         }
       }
 
-      // 3. Grid lines
-      ctx.strokeStyle = "rgba(0,0,0,0.07)";
-      ctx.lineWidth = 0.5;
-      for (let i = 0; i <= GRID; i++) {
-        ctx.beginPath(); ctx.moveTo(i * CELL, 0);    ctx.lineTo(i * CELL, SIZE); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, i * CELL);    ctx.lineTo(SIZE, i * CELL); ctx.stroke();
+      // 3. Grid lines — skipped in display mode
+      if (!displayMode) {
+        ctx.strokeStyle = "rgba(0,0,0,0.07)";
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i <= GRID; i++) {
+          ctx.beginPath(); ctx.moveTo(i * CELL, 0);    ctx.lineTo(i * CELL, SIZE); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(0, i * CELL);    ctx.lineTo(SIZE, i * CELL); ctx.stroke();
+        }
       }
 
       // 4. Villagers
       for (const v of s.villagers) {
         const cx = v.x * CELL + CELL / 2;
         const cy = v.y * CELL + CELL / 2;
-        // Shadow
-        ctx.fillStyle = "rgba(0,0,0,0.25)";
-        ctx.beginPath();
-        ctx.ellipse(cx, cy + 2.5, 4.5, 2, 0, 0, Math.PI * 2);
-        ctx.fill();
+        // Shadow — skipped in display mode
+        if (!displayMode) {
+          ctx.fillStyle = "rgba(0,0,0,0.25)";
+          ctx.beginPath();
+          ctx.ellipse(cx, cy + 2.5, 4.5, 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
         // Role ring
         ctx.fillStyle = v.role === "farmer" ? "#84cc16" : "#38bdf8";
         ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill();
@@ -297,18 +322,20 @@ export default function WorldCanvas({ state, selectedAction, onTileClick }: Prop
         ctx.fillRect(0, 0, SIZE, SIZE);
       }
 
-      // 8. Hover highlight
-      const hover  = hoverRef.current;
-      const action = actionRef.current;
-      if (hover && action) {
-        const hint = ACTION_FILL[action];
-        if (hint) {
-          ctx.fillStyle = hint;
-          ctx.fillRect(hover.x * CELL, hover.y * CELL, CELL, CELL);
+      // 8. Hover highlight — skipped in display mode (no mouse interaction)
+      if (!displayMode) {
+        const hover  = hoverRef.current;
+        const action = actionRef.current;
+        if (hover && action) {
+          const hint = ACTION_FILL[action];
+          if (hint) {
+            ctx.fillStyle = hint;
+            ctx.fillRect(hover.x * CELL, hover.y * CELL, CELL, CELL);
+          }
+          ctx.strokeStyle = "rgba(255,255,255,0.88)";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(hover.x * CELL, hover.y * CELL, CELL, CELL);
         }
-        ctx.strokeStyle = "rgba(255,255,255,0.88)";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(hover.x * CELL, hover.y * CELL, CELL, CELL);
       }
 
       animId = requestAnimationFrame(animate);
@@ -316,7 +343,7 @@ export default function WorldCanvas({ state, selectedAction, onTileClick }: Prop
 
     animId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animId);
-  }, []); // intentionally empty — RAF loop reads everything via refs
+  }, [displayMode]); // displayMode changes style/perf but not the loop lifetime
 
   // ── Mouse helpers ─────────────────────────────────────────────────────────
   const getTile = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -326,6 +353,17 @@ export default function WorldCanvas({ state, selectedAction, onTileClick }: Prop
       y: Math.max(0, Math.min(GRID - 1, Math.floor((e.clientY - rect.top)  * (SIZE / rect.height) / CELL))),
     };
   };
+
+  if (displayMode) {
+    return (
+      <canvas
+        ref={canvasRef}
+        width={SIZE}
+        height={SIZE}
+        style={{ imageRendering: "pixelated", width: "min(100vw, 100vh)", height: "min(100vw, 100vh)" }}
+      />
+    );
+  }
 
   return (
     <canvas

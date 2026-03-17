@@ -34,6 +34,9 @@ services:
     environment:
       NEXT_PUBLIC_WS_URL: "ws://localhost:8000/ws"
       NEXT_PUBLIC_API_URL: "http://localhost:8000"
+      # Set to "true" to enable fullscreen kiosk/display mode (no UI controls).
+      # Takes effect immediately on restart — no image rebuild required.
+      DISPLAY_MODE: "false"
     depends_on:
       - backend
 
